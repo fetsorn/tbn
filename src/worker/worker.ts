@@ -211,68 +211,6 @@ function escapeRegExp(string: string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // $& means the whole matched string
 }
 
-async function handleHover(symbol: string) {
-    const wasmFs = await wasmFsPromise
-
-    let symbolMatcherRe = new RegExp("\\b" + escapeRegExp(symbol) + "(\\b|$)")
-    let symbolMatcher = (k: string) => symbolMatcherRe.test(k)
-    let results: string[] = []
-
-    const symFile = wasmFs.fs.readFileSync(`${filePrefix}.sym`) as Uint8Array
-    let lastPos = 0
-    let dec = new TextDecoder("utf-8")
-
-    for (let i = 0; i < symFile.length; i++) {
-        if (symFile[i] !== 0x0a) continue
-        let line = dec.decode(symFile.slice(lastPos, i))
-        const parts = line.split(",")
-
-        if (parts[3] && symbolMatcher(parts[3])) {
-            const { fd: fdWtns, sections: sectionsWtns } =
-                await binFileUtils.readBinFile(
-                    wtnsFile,
-                    "wtns",
-                    2,
-                    1 << 25,
-                    1 << 23
-                )
-
-            const wtns = await readWtnsHeader(fdWtns, sectionsWtns)
-            const buffWitness = await binFileUtils.readSection(
-                fdWtns,
-                sectionsWtns,
-                2
-            )
-
-            const signalIndex = parseInt(parts[1])
-            if (signalIndex !== -1) {
-                const b = buffWitness.slice(
-                    signalIndex * wtns.n8,
-                    signalIndex * wtns.n8 + wtns.n8
-                )
-                results.push(
-                    "*" +
-                        parts[3].replace("main.", "") +
-                        " =* " +
-                        Scalar.fromRprLE(b).toString()
-                )
-            }
-
-            await fdWtns.close()
-
-            if (results.length > 3) {
-                results.push("...")
-                break
-            }
-        }
-
-        lastPos = i + 1
-    }
-
-    postMessage({ type: "hover", text: results.join("\n\n") })
-    // console.log(symFile)
-}
-
 onmessage = (e: MessageEvent) => {
     const data = e.data
 
@@ -286,11 +224,6 @@ onmessage = (e: MessageEvent) => {
                     console.error(err)
                 })
             })
-    } else if (data.type === "hover") {
-        handleHover(data.symbol).catch((err) => {
-            console.log("hover err", err)
-            postMessage({ type: "hover", text: "" })
-        })
     } else if (data.type === "groth16") {
         zkreplURL = data.url
         generateGroth16ProvingKey().catch((err) => {

@@ -79,6 +79,89 @@ export default function App() {
 
     return (
         <div className="layout">
+            <div className="primary">
+                <div className="fff">
+                    <input type="text"/>
+                    <button onClick={() => {console.log(1)}} title="1">Generate</button>
+                </div>
+                <div className="fff">
+                    <input type="text"/>
+                    <button onClick={() => {console.log(2)}} title="2">Prove</button>
+                </div>
+                <div className="phase2">
+                    <input
+                        type="file"
+                        id="zkey_upload"
+                        accept=".zkey"
+                        className="hidden-file"
+                        onChange={(e) => {
+                            const file = e.target?.files?.[0]
+                            if (file) {
+                                const reader = new FileReader()
+                                reader.onload = () => {
+                                    workerRef.current!.postMessage(
+                                        {
+                                            type: "verify",
+                                            data: reader.result,
+                                        }
+                                    )
+                                    setRunning(Math.random())
+                                }
+                                reader.readAsArrayBuffer(file)
+                            }
+                        }}
+                    ></input>
+
+                    <button
+                        onClick={() => {
+                            workerRef.current!.postMessage({
+                                type: "groth16",
+                                url: location.href,
+                                // code: editor.getValue(),
+                            })
+                            setRunning(Math.random())
+                        }}
+                        title={
+                        "Click here to generate Groth16 prover and verifier keys," +
+                               " as well as a solidity verifier contract, and a sample interactive" +
+                               " SnarkJS web application. Note that the Groth16 proving system " +
+                               "requires a per-circuit trusted setup, and this implementation only" +
+                               " adds a single contribution which is insufficient for production. "
+                        }
+                    >
+                        Groth16
+                    </button>
+                    <button
+                        onClick={() => {
+                            workerRef.current!.postMessage({
+                                type: "plonk",
+                                url: location.href,
+                            })
+                            setRunning(Math.random())
+                        }}
+                        title={
+                        "Click here to generate PLONK prover and verifier keys," +
+                               " as well as a solidity verifier contract, and a sample interactive" +
+                               " SnarkJS web application."
+                        }
+                    >
+                        PLONK
+                    </button>
+                    <button
+                        title={
+                        "Upload a ZKey here to check that it is compiled from the same " +
+                               "source code as this."
+                        }
+                        onClick={() => {
+                            document
+                                .getElementById("zkey_upload")!
+                                .click()
+                        }}
+                    >
+                        Verify
+                    </button>
+                </div>
+            </div>
             <div className="sidebar">
                 <div className="output">
                     {messages.map((m, i) => (
@@ -132,79 +215,6 @@ export default function App() {
                                     Keys + Solidity + HTML:{" "}
                                 </div>
 
-                                <div className="phase2">
-                                    <input
-                                        type="file"
-                                        id="zkey_upload"
-                                        accept=".zkey"
-                                        className="hidden-file"
-                                        onChange={(e) => {
-                                            const file = e.target?.files?.[0]
-                                            if (file) {
-                                                const reader = new FileReader()
-                                                reader.onload = () => {
-                                                    workerRef.current!.postMessage(
-                                                        {
-                                                            type: "verify",
-                                                            data: reader.result,
-                                                        }
-                                                    )
-                                                    setRunning(Math.random())
-                                                }
-                                                reader.readAsArrayBuffer(file)
-                                            }
-                                        }}
-                                    ></input>
-
-                                    <button
-                                        onClick={() => {
-                                            workerRef.current!.postMessage({
-                                                type: "groth16",
-                                                url: location.href,
-                                                // code: editor.getValue(),
-                                            })
-                                            setRunning(Math.random())
-                                        }}
-                                        title={
-                                            "Click here to generate Groth16 prover and verifier keys," +
-                                            " as well as a solidity verifier contract, and a sample interactive" +
-                                            " SnarkJS web application. Note that the Groth16 proving system " +
-                                            "requires a per-circuit trusted setup, and this implementation only" +
-                                            " adds a single contribution which is insufficient for production. "
-                                        }
-                                    >
-                                        Groth16
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            workerRef.current!.postMessage({
-                                                type: "plonk",
-                                                url: location.href,
-                                            })
-                                            setRunning(Math.random())
-                                        }}
-                                        title={
-                                            "Click here to generate PLONK prover and verifier keys," +
-                                            " as well as a solidity verifier contract, and a sample interactive" +
-                                            " SnarkJS web application."
-                                        }
-                                    >
-                                        PLONK
-                                    </button>
-                                    <button
-                                        title={
-                                            "Upload a ZKey here to check that it is compiled from the same " +
-                                            "source code as this."
-                                        }
-                                        onClick={() => {
-                                            document
-                                                .getElementById("zkey_upload")!
-                                                .click()
-                                        }}
-                                    >
-                                        Verify
-                                    </button>
-                                </div>
                             </div>
                         )
                     }
