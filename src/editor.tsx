@@ -1,27 +1,10 @@
 import React from "react"
 
-import "monaco-editor/esm/vs/editor/browser/controller/coreCommands.js"
-import "monaco-editor/esm/vs/editor/contrib/bracketMatching/bracketMatching.js"
-import "monaco-editor/esm/vs/editor/contrib/caretOperations/caretOperations.js"
-import "monaco-editor/esm/vs/editor/contrib/clipboard/clipboard.js"
-import "monaco-editor/esm/vs/editor/contrib/comment/comment.js"
-import "monaco-editor/esm/vs/editor/contrib/contextmenu/contextmenu.js"
-import "monaco-editor/esm/vs/editor/contrib/cursorUndo/cursorUndo.js"
-import "monaco-editor/esm/vs/editor/contrib/find/findController.js"
-import "monaco-editor/esm/vs/editor/contrib/folding/folding.js"
-import "monaco-editor/esm/vs/editor/contrib/fontZoom/fontZoom.js"
-import "monaco-editor/esm/vs/editor/contrib/hover/hover.js"
-import "monaco-editor/esm/vs/editor/contrib/indentation/indentation.js"
-import "monaco-editor/esm/vs/editor/contrib/multicursor/multicursor.js"
-import "monaco-editor/esm/vs/editor/standalone/browser/iPadShowKeyboard/iPadShowKeyboard.js"
-
 import "./syntax"
 import codeExample from "./data/example.circom?raw"
 import CircomWorker from "./worker/worker?worker"
 import Ansi from "ansi-to-react"
 import * as _ from "lodash"
-
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api"
 
 // this is a workaround for what seems to be some kind of bug around
 // importing raw urls from webworkers in production builds
@@ -29,7 +12,6 @@ import wasmURL from "circom2/circom.wasm?url"
 import circomspectWasmURL from "circomspect/circomspect.wasm?url"
 import circomLib from "./data/circomlib.zip?url"
 import type { Log } from "sarif"
-import { replyHover } from "./syntax"
 console.log(circomLib, wasmURL, circomspectWasmURL)
 
 type Message = {
@@ -44,14 +26,10 @@ export var circomWorker: Worker
 export default function App() {
     const [running, setRunning] = React.useState<false | number>(false)
     const [messages, setMessages] = React.useState<Message[]>([])
-    const modelsRef = React.useRef<monaco.editor.ITextModel[]>([])
     const workerRef = React.useRef<(Worker & { running?: boolean }) | null>(
         null
     )
     const [progress, setProgress] = React.useState(1)
-    const editorState = React.useRef<
-        Record<string, monaco.editor.ICodeEditorViewState>
-    >({})
 
     const run = () => {
         if (!workerRef.current || workerRef.current!.running) {
@@ -66,56 +44,10 @@ export default function App() {
                 if (data.done) {
                     setRunning(false)
                     workerRef.current!.running = false
-                } else if (data.type === "hover") {
-                    return replyHover(data)
                 } else if (data.type === "debug") {
                     console.log(data.text)
                 } else if (data.type === "progress") {
                     setProgress(data.fraction)
-                    return
-                } else if (data.type === "sarif") {
-                    const sarif: Log = data.result
-                    console.log("sarif", sarif)
-                    for (let model of modelsRef.current) {
-                        const markers: monaco.editor.IMarkerData[] = []
-
-                        for (let result of sarif.runs[0].results!) {
-                            for (let loc of result.locations!) {
-                                if (
-                                    loc.physicalLocation?.artifactLocation?.uri?.replace(
-                                        "file:/",
-                                        ""
-                                    ) !== model.uri.path
-                                )
-                                    continue
-                                markers.push({
-                                    message: loc.message?.text!,
-                                    severity:
-                                        result.level == "warning"
-                                            ? monaco.MarkerSeverity.Warning
-                                            : result.level == "note"
-                                            ? monaco.MarkerSeverity.Info
-                                            : monaco.MarkerSeverity.Error,
-                                    startLineNumber:
-                                        loc.physicalLocation?.region
-                                            ?.startLine!,
-                                    startColumn:
-                                        loc.physicalLocation?.region
-                                            ?.startColumn!,
-                                    endLineNumber:
-                                        loc.physicalLocation?.region?.endLine!,
-                                    endColumn:
-                                        loc.physicalLocation?.region
-                                            ?.endColumn!,
-                                })
-                            }
-                        }
-
-                        monaco.editor.setModelMarkers(model, "owner", markers)
-                    }
-
-                    // const model = editor?.getModel()!
-
                     return
                 }
                 setMessages((k) => [...k, data])
@@ -136,29 +68,15 @@ export default function App() {
         setMessages([])
         workerRef.current.postMessage({
             type: "run",
-            files: modelsToFiles(modelsRef.current),
-        })
-    }
-
-    const modelsToFiles = (models: monaco.editor.ITextModel[]) => {
-        return models.map((x) => {
-            return {
-                value: x.getValue(),
-                name: x.uri.path.slice(1),
-                active: x.isAttachedToEditor(),
-            }
+            files: [{
+                value: codeExample,
+                name: "main.circom",
+                active: false,
+            }],
         })
     }
 
     React.useEffect(() => {
-            const model = monaco.editor.createModel(
-                codeExample,
-                "circom",
-                new monaco.Uri().with({ path: "main.circom" })
-            )
-
-            modelsRef.current = [model]
-
             run()
     }, [])
 
@@ -211,9 +129,6 @@ export default function App() {
                         </div>
                     ))}
                     {
-                        // messages.some((k) => k.type === "done") &&
-                        //     !messages.some((k) => k.type === "keys") &&
-                        //     !messages.some((k) => k.type === "verified") &&
                         !running && workerRef.current && (
                             <div>
                                 <div className="label">
@@ -268,7 +183,6 @@ export default function App() {
                                             workerRef.current!.postMessage({
                                                 type: "plonk",
                                                 url: location.href,
-                                                // code: editor.getValue(),
                                             })
                                             setRunning(Math.random())
                                         }}
