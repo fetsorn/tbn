@@ -1,5 +1,8 @@
 import React from "react"
 
+import { ethers } from "ethers";
+import { solidityCompiler, getCompilerVersions } from "@agnostico/browser-solidity-compiler";
+
 import codeExample from "./data/example.circom?raw"
 import CircomWorker from "./worker/worker?worker"
 import Ansi from "ansi-to-react"
@@ -18,12 +21,9 @@ type Message = {
     url?: string
 }
 
-export var circomWorker: Worker
-
 export default function App() {
     const [running, setRunning] = React.useState<false | number>(false)
     const [input, setInput] = React.useState<string>("42")
-    const [guess, setGuess] = React.useState<string>("")
     const [messages, setMessages] = React.useState<Message[]>([])
     const workerRef = React.useRef<(Worker & { running?: boolean }) | null>(
         null
@@ -37,7 +37,6 @@ export default function App() {
                 workerRef.current = null
             }
             workerRef.current = new CircomWorker()
-            circomWorker = workerRef.current
             workerRef.current.onmessage = (e: MessageEvent) => {
                 const data = e.data
                 if (data.done) {
@@ -49,6 +48,54 @@ export default function App() {
                     setProgress(data.fraction)
                     return
                 }
+
+                if (data.type === "plonk keys") {
+                    workerRef.current!.running = true
+                    setRunning(Math.random() + 1)
+                    const deploy = async () => {
+                        const versions = await getCompilerVersions()
+                        const version = versions.releases["0.8.18"]
+                        const output = await solidityCompiler({
+                            version: `https://binaries.soliditylang.org/bin/${version}`,
+                            contractBody: data.files["main.plonk.sol"].replace('uint4', 'uint8'),
+                            options: { optimizer: {
+                                enabled: false,
+                                runs: 200,
+                            }},
+                        })
+
+                        const contract = output.contracts.Compiled_Contracts.PlonkVerifier
+
+                        setMessages((k) => [...k, {
+                            type: "compilation",
+                            files: {
+                                "main.plonk.sol.json": JSON.stringify(contract, 2),
+                            }
+                        }])
+
+                        const provider = new ethers.BrowserProvider(window.ethereum)
+
+                        const signer = await provider.getSigner();
+
+                        const factory = ethers.ContractFactory.fromSolidity(contract, signer)
+
+                        const deploying = await factory.deploy()
+
+                        const deployed = await deploying.waitForDeployment()
+
+                        setRunning(false)
+                        workerRef.current!.running = false
+
+                        setMessages((k) => [...k, {
+                            type: "deployment",
+                            text: deployed.target
+                        }])
+                    }
+
+                    // NOTE compilations always output nonexistent uint4 data type
+                    deploy(data.files["main.plonk.sol"].replace('uint4', 'uint8'))
+                }
+
                 setMessages((k) => [...k, data])
             }
             workerRef.current.onerror = (e) => {
@@ -65,9 +112,6 @@ export default function App() {
         workerRef.current!.running = true
         setRunning(Math.random() + 1)
         setMessages([])
-        /* let a = codeExample */
-        /* a.replace('42', input) */
-        console.log(input, codeExample.replaceAll('42', input))
         workerRef.current.postMessage({
             type: "run",
             files: [{
@@ -78,6 +122,7 @@ export default function App() {
         })
     }
 
+
     React.useEffect(() => {
             run()
     }, [input])
@@ -87,84 +132,13 @@ export default function App() {
             <div className="primary">
                 <div className="fff">
                     <input type="text" value={input} onChange={((e) => setInput(e.target.value))} />
-                    <button onClick={() => {console.log(1)}} title="1">Generate</button>
-                </div>
-                <div className="fff">
-                    <input type="text" value={guess} onChange={((e) => setGuess(e.target.value))} />
-                    <button onClick={() => {console.log(2)}} title="2">Prove</button>
-                </div>
-                <div className="phase2">
-                    <input
-                        type="file"
-                        id="zkey_upload"
-                        accept=".zkey"
-                        className="hidden-file"
-                        onChange={(e) => {
-                            const file = e.target?.files?.[0]
-                            if (file) {
-                                const reader = new FileReader()
-                                reader.onload = () => {
-                                    workerRef.current!.postMessage(
-                                        {
-                                            type: "verify",
-                                            data: reader.result,
-                                        }
-                                    )
-                                    setRunning(Math.random())
-                                }
-                                reader.readAsArrayBuffer(file)
-                            }
-                        }}
-                    ></input>
-
-                    <button
-                        onClick={() => {
-                            workerRef.current!.postMessage({
-                                type: "groth16",
-                                url: location.href,
-                                // code: editor.getValue(),
-                            })
-                            setRunning(Math.random())
-                        }}
-                        title={
-                        "Click here to generate Groth16 prover and verifier keys," +
-                               " as well as a solidity verifier contract, and a sample interactive" +
-                               " SnarkJS web application. Note that the Groth16 proving system " +
-                               "requires a per-circuit trusted setup, and this implementation only" +
-                               " adds a single contribution which is insufficient for production. "
-                        }
-                    >
-                        Groth16
-                    </button>
-                    <button
-                        onClick={() => {
+                    <button onClick={() => {
                             workerRef.current!.postMessage({
                                 type: "plonk",
                                 url: location.href,
                             })
                             setRunning(Math.random())
-                        }}
-                        title={
-                        "Click here to generate PLONK prover and verifier keys," +
-                               " as well as a solidity verifier contract, and a sample interactive" +
-                               " SnarkJS web application."
-                        }
-                    >
-                        PLONK
-                    </button>
-                    <button
-                        title={
-                        "Upload a ZKey here to check that it is compiled from the same " +
-                               "source code as this."
-                        }
-                        onClick={() => {
-                            document
-                                .getElementById("zkey_upload")!
-                                .click()
-                        }}
-                    >
-                        Verify
-                    </button>
+                        }} title="generate and deploy verifier">Deploy</button>
                 </div>
             </div>
             <div className="sidebar">
@@ -255,11 +229,6 @@ function LoadingIndicator() {
             {time > 200 && (
                 <div className="time">{(time / 1000).toFixed(2)}s</div>
             )}
-            <div className="time">
-                <small>
-                    <b>Cmd-.</b> to interrupt
-                </small>
-            </div>
         </div>
     )
 }

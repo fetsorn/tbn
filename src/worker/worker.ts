@@ -219,11 +219,6 @@ onmessage = (e: MessageEvent) => {
             .catch((err) => {
                 postMessage({ type: "fail", done: true, text: err.message })
             })
-            .then(() => {
-                analyzeCircom(data.files).catch((err) => {
-                    console.error(err)
-                })
-            })
     } else if (data.type === "groth16") {
         zkreplURL = data.url
         generateGroth16ProvingKey().catch((err) => {
@@ -234,29 +229,7 @@ onmessage = (e: MessageEvent) => {
         generatePLONKProvingKey().catch((err) => {
             postMessage({ type: "fail", done: true, text: err.message })
         })
-    } else if (data.type === "verify") {
-        verifyZKey(data.data).catch((err) => {
-            postMessage({ type: "fail", done: true, text: err.message })
-        })
-    } else if (data.type === "analyze") {
-        analyzeCircom(data.files).catch((err) => {
-            console.error(err)
-        })
     }
-}
-
-async function analyzeCircom(files: File[]) {
-    const { mainCode, wasmFs, fileName } = await initFs(files)
-
-    console.time("start circomspect")
-    await runCircomspect(fileName)
-    postMessage({
-        type: "sarif",
-        result: JSON.parse(
-            wasmFs.fs.readFileSync("__circomspect.sarif", "utf8") as string
-        ),
-    })
-    console.timeEnd("start circomspect")
 }
 
 async function verifyZKey(zKeyData: ArrayBuffer) {
