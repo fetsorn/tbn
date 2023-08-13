@@ -22,6 +22,8 @@ export var circomWorker: Worker
 
 export default function App() {
     const [running, setRunning] = React.useState<false | number>(false)
+    const [input, setInput] = React.useState<string>("42")
+    const [guess, setGuess] = React.useState<string>("")
     const [messages, setMessages] = React.useState<Message[]>([])
     const workerRef = React.useRef<(Worker & { running?: boolean }) | null>(
         null
@@ -63,10 +65,13 @@ export default function App() {
         workerRef.current!.running = true
         setRunning(Math.random() + 1)
         setMessages([])
+        /* let a = codeExample */
+        /* a.replace('42', input) */
+        console.log(input, codeExample.replaceAll('42', input))
         workerRef.current.postMessage({
             type: "run",
             files: [{
-                value: codeExample,
+                value: codeExample.replace('42', input),
                 name: "main.circom",
                 active: false,
             }],
@@ -75,17 +80,17 @@ export default function App() {
 
     React.useEffect(() => {
             run()
-    }, [])
+    }, [input])
 
     return (
         <div className="layout">
             <div className="primary">
                 <div className="fff">
-                    <input type="text"/>
+                    <input type="text" value={input} onChange={((e) => setInput(e.target.value))} />
                     <button onClick={() => {console.log(1)}} title="1">Generate</button>
                 </div>
                 <div className="fff">
-                    <input type="text"/>
+                    <input type="text" value={guess} onChange={((e) => setGuess(e.target.value))} />
                     <button onClick={() => {console.log(2)}} title="2">Prove</button>
                 </div>
                 <div className="phase2">

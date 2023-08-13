@@ -8,20 +8,13 @@ template Example () {
     signal input b;
     signal output c;
     
-    var unused = 4;
     c <== a * b;
-    assert(a > 2);
-    
-    component hash = Poseidon(2);
-    hash.inputs[0] <== a;
-    hash.inputs[1] <== b;
-
-    log("hash", hash.out);
+    a === 42;
 }
 
 component main { public [ a ] } = Example();
 
 /* INPUT = {
-    "a": "5",
+    "a": "42",
     "b": "77"
 } */
