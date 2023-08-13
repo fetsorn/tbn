@@ -1,17 +1,14 @@
 import React from "react"
 
-import "./syntax"
 import codeExample from "./data/example.circom?raw"
 import CircomWorker from "./worker/worker?worker"
 import Ansi from "ansi-to-react"
-import * as _ from "lodash"
 
 // this is a workaround for what seems to be some kind of bug around
 // importing raw urls from webworkers in production builds
 import wasmURL from "circom2/circom.wasm?url"
 import circomspectWasmURL from "circomspect/circomspect.wasm?url"
 import circomLib from "./data/circomlib.zip?url"
-import type { Log } from "sarif"
 console.log(circomLib, wasmURL, circomspectWasmURL)
 
 type Message = {
@@ -197,7 +194,7 @@ export default function App() {
                                     <button
                                         title={
                                             "Upload a ZKey here to check that it is compiled from the same " +
-                                            "source code as this current zkREPL."
+                                            "source code as this."
                                         }
                                         onClick={() => {
                                             document
