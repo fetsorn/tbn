@@ -44,10 +44,7 @@ export var circomWorker: Worker
 export default function App() {
     const [running, setRunning] = React.useState<false | number>(false)
     const [messages, setMessages] = React.useState<Message[]>([])
-    const [editor, setEditor] =
-        React.useState<monaco.editor.IStandaloneCodeEditor | null>(null)
     const modelsRef = React.useRef<monaco.editor.ITextModel[]>([])
-    const monacoEl = React.useRef(null)
     const workerRef = React.useRef<(Worker & { running?: boolean }) | null>(
         null
     )
@@ -154,17 +151,6 @@ export default function App() {
     }
 
     React.useEffect(() => {
-        if (monacoEl && !editor) {
-            const editor = monaco.editor.create(monacoEl.current!, {
-                language: "circom",
-                theme: "vs",
-
-                automaticLayout: true, // the important part
-                hover: {
-                    enabled: true,
-                },
-            })
-
             const model = monaco.editor.createModel(
                 codeExample,
                 "circom",
@@ -173,21 +159,11 @@ export default function App() {
 
             modelsRef.current = [model]
 
-            editor.setModel(model)
-
             run()
-
-            setEditor(editor)
-        }
-
-        return () => editor?.dispose()
-    }, [monacoEl.current])
+    }, [])
 
     return (
         <div className="layout">
-            <div className="primary">
-                <div className="editor" ref={monacoEl}></div>
-            </div>
             <div className="sidebar">
                 <div className="output">
                     {messages.map((m, i) => (
