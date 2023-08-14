@@ -52,12 +52,14 @@ export default function App() {
                 if (data.type === "plonk keys") {
                     workerRef.current!.running = true
                     setRunning(Math.random() + 1)
+
                     const deploy = async () => {
                         const versions = await getCompilerVersions()
                         const version = versions.releases["0.8.18"]
+                        const contractBody = data.files["main.plonk.sol"];
                         const output = await solidityCompiler({
                             version: `https://binaries.soliditylang.org/bin/${version}`,
-                            contractBody: data.files["main.plonk.sol"].replace('uint4', 'uint8'),
+                            contractBody,
                             options: { optimizer: {
                                 enabled: false,
                                 runs: 200,
@@ -83,17 +85,21 @@ export default function App() {
 
                         const deployed = await deploying.waitForDeployment()
 
-                        setRunning(false)
-                        workerRef.current!.running = false
-
                         setMessages((k) => [...k, {
                             type: "deployment",
                             text: deployed.target
                         }])
+
+                        workerRef.current!.postMessage({
+                            type: "guess",
+                            zkfile: data.files["main.plonk.zkey"],
+                            vkey: data.files["main.plonk.vkey.json"],
+                            address: deployed.target,
+                            contract
+                        })
                     }
 
-                    // NOTE compilations always output nonexistent uint4 data type
-                    deploy(data.files["main.plonk.sol"].replace('uint4', 'uint8'))
+                    deploy()
                 }
 
                 setMessages((k) => [...k, data])
@@ -111,11 +117,18 @@ export default function App() {
         }
         workerRef.current!.running = true
         setRunning(Math.random() + 1)
-        setMessages([])
+
+        setMessages([{
+            type: "circuit",
+            files: {
+                "main.circom": codeExample.replaceAll('42', input),
+            }
+        }])
+
         workerRef.current.postMessage({
             type: "run",
             files: [{
-                value: codeExample.replace('42', input),
+                value: codeExample.replaceAll('42', input),
                 name: "main.circom",
                 active: false,
             }],

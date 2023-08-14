@@ -11,7 +11,9 @@ import { Scalar } from "ffjavascript"
 import groth16SolidityVerifierTemplate from "../data/groth16.sol?raw"
 import plonkSolidityVerifierTemplate from "../data/plonk.sol?raw"
 import snarkJsTemplate from "../data/snarkjs.min.js?raw"
+import ethersJsTemplate from "../../node_modules/ethers/dist/ethers.min.js?raw"
 import appTemplate from "../data/demo.html?raw"
+import guessTemplate from "../data/guess.html?raw"
 import { zKey, plonk } from "snarkjs"
 
 let wtnsFile: Uint8Array
@@ -229,7 +231,28 @@ onmessage = (e: MessageEvent) => {
         generatePLONKProvingKey().catch((err) => {
             postMessage({ type: "fail", done: true, text: err.message })
         })
+    } else if (data.type === "guess") {
+        zkreplURL = data.url
+        guess(data.zkfile, data.vkey, data.contract, data.address).catch((err) => {
+            postMessage({ type: "fail", done: true, text: err.message })
+        })
     }
+}
+
+async function guess(zkFile, vkeyResult, contract, address) {
+    postMessage({
+        type: "contract interaction",
+        done: true,
+        files: {
+            ["guess.html"]: await generateSnarkTemplate(
+                guessTemplate,
+                { type: "mem", data: zkFile },
+                vkeyResult,
+                contract,
+                address
+            ),
+        },
+    })
 }
 
 async function verifyZKey(zKeyData: ArrayBuffer) {
@@ -314,8 +337,10 @@ async function generatePLONKProvingKey() {
         files: {
             [filePrefix + ".plonk.zkey"]: zkFile.data,
             [filePrefix + ".plonk.vkey.json"]: vkeyResult,
-            [filePrefix + ".plonk.sol"]: solidityProver,
+            // NOTE compilations always output nonexistent uint4 data type
+            [filePrefix + ".plonk.sol"]: solidityProver.replace('uint4', 'uint8'),
             [filePrefix + ".plonk.html"]: await generateSnarkTemplate(
+                appTemplate,
                 zkFile,
                 vkeyResult
             ),
@@ -324,15 +349,20 @@ async function generatePLONKProvingKey() {
 }
 
 async function generateSnarkTemplate(
+    template: string,
     zkFile: { data: any },
-    vkeyResult: string
+    vkeyResult: string,
+    contract: any = {},
+    address: string = ""
 ) {
     const wasmFs = await wasmFsPromise
 
-    return appTemplate
+    return template
         .replace('"{{INPUT_JSON}}"', JSON.stringify(parsedInputJSON))
         .replace('"{{VKEY_DATA}}"', vkeyResult)
         .replace("{{ZKREPL_URL}}", zkreplURL)
+        .replace('"{{CONTRACT}}"', JSON.stringify(contract))
+        .replace("/*{{ETHERS_JS}}*/", ethersJsTemplate)
         .replace("/*{{SNARK_JS}}*/", snarkJsTemplate)
         .replace(
             "{{ZKEY_DATA}}",
@@ -348,6 +378,7 @@ async function generateSnarkTemplate(
                     ) as Buffer
                 ).toString("base64")
         )
+        .replace("{{VERIFIER_ADDRESS}}", address)
 }
 
 type Logger = {
@@ -414,6 +445,7 @@ async function generateGroth16ProvingKey() {
             [filePrefix + ".groth16.vkey.json"]: vkeyResult,
             [filePrefix + ".groth16.sol"]: solidityProver,
             [filePrefix + ".groth16.html"]: await generateSnarkTemplate(
+                appTemplate,
                 zkFile,
                 vkeyResult
             ),

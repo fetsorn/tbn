@@ -5,16 +5,12 @@ include "circomlib/poseidon.circom";
 
 template Example () {
     signal input a;
-    signal input b;
     signal output c;
-    
-    c <== a * b;
     a === 42;
 }
 
-component main { public [ a ] } = Example();
+component main = Example();
 
 /* INPUT = {
-    "a": "42",
     "b": "77"
 } */
