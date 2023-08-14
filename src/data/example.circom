@@ -12,5 +12,5 @@ template Example () {
 component main = Example();
 
 /* INPUT = {
-    "b": "77"
+    "a": "42"
 } */
